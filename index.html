@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bリーグ入場者数</title>
+<style>
+:root{
+  --bg:#f4f4f1; --surface:#fcfcfb; --surface-2:#f0efec; --line:#e2e1dc;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#7a7974;
+  --accent:#2a78d6; --accent-soft:#cde2fb; --bar-track:#ecebe7;
+  --chip-on:#0b0b0b; --chip-on-text:#ffffff;
+  --premier:#2a78d6; --one:#eb6834; --next:#1baf7a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111110; --surface:#1a1a19; --surface-2:#232321; --line:#2f2f2c;
+    --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8e86;
+    --accent:#3987e5; --accent-soft:#184f95; --bar-track:#2a2a27;
+    --chip-on:#ffffff; --chip-on-text:#111110;
+    --premier:#3987e5; --one:#d95926; --next:#199e70;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:22px;margin:0;letter-spacing:.02em}
+.sub{color:var(--text-2);font-size:12px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--text);
+  border-radius:999px;padding:6px 14px;font:inherit;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-text);border-color:var(--chip-on)}
+.spacer{flex:1}
+.tabs{display:flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:10px}
+.tab{border:0;background:transparent;color:var(--text-2);padding:6px 14px;border-radius:7px;font:inherit;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi .lb{color:var(--text-2);font-size:12px}
+.kpi .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kpi .s{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 4px}
+.card .note{color:var(--muted);font-size:12px;margin:0 0 12px}
+.chart{position:relative;height:200px}
+.chart svg{display:block;width:100%;height:100%;overflow:visible}
+.chart .grid line{stroke:var(--line);stroke-width:1}
+.chart .axis text{fill:var(--muted);font-size:10px}
+.chart .bar{fill:var(--accent)}
+.chart .bar.dim{opacity:.35}
+.tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);
+  font-size:12px;padding:6px 9px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-100%);
+  margin-top:-8px;opacity:0;transition:opacity .08s}
+.tip b{font-variant-numeric:tabular-nums}
+details.day{border-top:1px solid var(--line)}
+details.day:first-of-type{border-top:0}
+details.day summary{list-style:none;cursor:pointer;display:grid;
+  grid-template-columns:minmax(110px,1fr) 70px 110px 110px;gap:8px;align-items:center;padding:10px 4px}
+details.day summary::-webkit-details-marker{display:none}
+details.day summary .dt{font-weight:600}
+details.day summary .dt::before{content:"▸";display:inline-block;width:14px;color:var(--muted);transition:transform .15s}
+details.day[open] summary .dt::before{transform:rotate(90deg)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.lbl{color:var(--muted);font-size:11px;margin-right:4px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:12px;color:var(--text-2);font-weight:600;white-space:nowrap}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--text)}
+th .arr{color:var(--accent)}
+tr:last-child td{border-bottom:0}
+.games td{font-size:13px}
+.games{margin:0 0 12px 18px;width:calc(100% - 18px)}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;
+  border:1px solid currentColor;letter-spacing:.02em;white-space:nowrap}
+.tag.P{color:var(--premier)} .tag.O{color:var(--one)} .tag.N{color:var(--next)}
+.team{font-weight:600}
+.vs{color:var(--muted);font-size:12px;margin:0 4px}
+.score{color:var(--text-2);font-variant-numeric:tabular-nums;font-size:12px}
+.venue{color:var(--muted);font-size:12px}
+.rank{width:36px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.barcell{width:34%}
+.hbar{display:flex;align-items:center;gap:8px}
+.hbar span{flex:0 0 52px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.hbar b{flex:1;height:12px;background:var(--bar-track);border-radius:4px;overflow:hidden;position:relative;min-width:30px}
+.hbar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:0 4px 4px 0}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.empty{padding:40px 0;text-align:center;color:var(--muted)}
+footer{color:var(--muted);font-size:12px;margin-top:8px}
+.hide-sm{}
+@media (max-width:720px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  details.day summary{grid-template-columns:1fr 52px 96px}
+  details.day summary .avgc{display:none}
+  .hide-sm{display:none}
+  .barcell{width:auto}
+  .games{margin-left:0;width:100%}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Bリーグ 入場者数</h1>
+      <div class="sub" id="meta"></div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-view="daily" aria-selected="true">日別</button>
+      <button class="tab" role="tab" data-view="rank" aria-selected="false">チーム平均ランキング</button>
+    </div>
+  </header>
+
+  <div class="controls" id="leagueChips"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <section id="view-daily">
+    <div class="card">
+      <h2>日別 総入場者数</h2>
+      <p class="note">棒にカーソルを合わせると内訳が出ます</p>
+      <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
+    </div>
+    <div class="card" id="days"></div>
+  </section>
+
+  <section id="view-rank" hidden>
+    <div class="card">
+      <h2>チーム別 平均入場者数（ホームゲーム）</h2>
+      <p class="note">列名を押すと並べ替えできます</p>
+      <table id="rankTable"></table>
+    </div>
+  </section>
+
+  <footer>出典：B.LEAGUE公式サイト 各試合詳細ページ ／ 元データ：<a href="data/games.csv">data/games.csv</a></footer>
+</div>
+
+<script>
+const DATA = {"season": "2026-27", "updated": "2026-09-27 20:23", "games": [{"k": "506379", "d": "2026-09-25", "l": "B.PREMIER", "e": "リーグ戦", "h": "茨城", "a": "三遠", "hs": "82", "as": "90", "v": "アダストリアみとアリーナ", "n": 4402, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506379&tab=2"}, {"k": "506380", "d": "2026-09-24", "l": "B.PREMIER", "e": "リーグ戦", "h": "群馬", "a": "A千葉", "hs": "76", "as": "74", "v": "オープンハウスアリーナ太田", "n": 5192, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506380&tab=2"}, {"k": "506381", "d": "2026-09-22", "l": "B.PREMIER", "e": "リーグ戦", "h": "A東京", "a": "琉球", "hs": "84", "as": "73", "v": "TOYOTA ARENA TOKYO", "n": 9514, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506381&tab=2"}, {"k": "506382", "d": "2026-09-25", "l": "B.PREMIER", "e": "リーグ戦", "h": "東京SR", "a": "千葉J", "hs": "92", "as": "97", "v": "TOYOTA ARENA TOKYO", "n": 9003, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506382&tab=2"}, {"k": "506383", "d": "2026-09-25", "l": "B.PREMIER", "e": "リーグ戦", "h": "京都", "a": "滋賀", "hs": "95", "as": "94", "v": "にっしんでんきアリーナ京都(京都市体育館)", "n": 4288, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506383&tab=2"}, {"k": "506384", "d": "2026-09-25", "l": "B.PREMIER", "e": "リーグ戦", "h": "佐賀", "a": "広島", "hs": "87", "as": "100", "v": "SAGAアリーナ", "n": 6453, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506384&tab=2"}, {"k": "506385", "d": "2026-09-23", "l": "B.PREMIER", "e": "リーグ戦", "h": "長崎", "a": "島根", "hs": "64", "as": "89", "v": "ハピネスアリーナ", "n": 5857, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506385&tab=2"}, {"k": "506386", "d": "2026-09-26", "l": "B.PREMIER", "e": "リーグ戦", "h": "北海道", "a": "三河", "hs": "106", "as": "97", "v": "北海きたえーる", "n": 6303, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506386&tab=2"}, {"k": "506387", "d": "2026-09-26", "l": "B.PREMIER", "e": "リーグ戦", "h": "仙台", "a": "秋田", "hs": "81", "as": "55", "v": "ゼビオアリーナ仙台", "n": 4839, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506387&tab=2"}, {"k": "506388", "d": "2026-09-26", "l": "B.PREMIER", "e": "リーグ戦", "h": "宇都宮", "a": "横浜BC", "hs": "88", "as": "78", "v": "日環アリーナ栃木", "n": 6206, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506388&tab=2"}, {"k": "506389", "d": "2026-09-23", "l": "B.PREMIER", "e": "リーグ戦", "h": "A東京", "a": "琉球", "hs": "74", "as": "85", "v": "TOYOTA ARENA TOKYO", "n": 9591, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506389&tab=2"}, {"k": "506390", "d": "2026-09-26", "l": "B.PREMIER", "e": "リーグ戦", "h": "東京SR", "a": "千葉J", "hs": "95", "as": "79", "v": "TOYOTA ARENA TOKYO", "n": 9126, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506390&tab=2"}, {"k": "506391", "d": "2026-09-26", "l": "B.PREMIER", "e": "リーグ戦", "h": "川崎", "a": "名古屋D", "hs": "63", "as": "93", "v": "東急ドレッセとどろきアリーナ", "n": 4701, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506391&tab=2"}, {"k": "506392", "d": "2026-09-26", "l": "B.PREMIER", "e": "リーグ戦", "h": "信州", "a": "富山", "hs": "85", "as": "99", "v": "ホワイトリング", "n": 4739, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506392&tab=2"}, {"k": "506393", "d": "2026-09-26", "l": "B.PREMIER", "e": "リーグ戦", "h": "神戸", "a": "大阪", "hs": "69", "as": "79", "v": "GLION ARENA KOBE", "n": 8396, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506393&tab=2"}, {"k": "506394", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "北海道", "a": "三河", "hs": "77", "as": "78", "v": "北海きたえーる", "n": 6158, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506394&tab=2"}, {"k": "506395", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "仙台", "a": "秋田", "hs": "73", "as": "75", "v": "ゼビオアリーナ仙台", "n": 4612, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506395&tab=2"}, {"k": "506396", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "茨城", "a": "三遠", "hs": "75", "as": "81", "v": "アダストリアみとアリーナ", "n": 4608, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506396&tab=2"}, {"k": "506397", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "宇都宮", "a": "横浜BC", "hs": "71", "as": "74", "v": "日環アリーナ栃木", "n": 5595, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506397&tab=2"}, {"k": "506398", "d": "2026-09-26", "l": "B.PREMIER", "e": "リーグ戦", "h": "群馬", "a": "A千葉", "hs": "91", "as": "59", "v": "オープンハウスアリーナ太田", "n": 4977, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506398&tab=2"}, {"k": "506399", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "川崎", "a": "名古屋D", "hs": "78", "as": "90", "v": "東急ドレッセとどろきアリーナ", "n": 4653, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506399&tab=2"}, {"k": "506400", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "信州", "a": "富山", "hs": "99", "as": "81", "v": "ホワイトリング", "n": 4148, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506400&tab=2"}, {"k": "506401", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "京都", "a": "滋賀", "hs": "77", "as": "81", "v": "にっしんでんきアリーナ京都(京都市体育館)", "n": 4252, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506401&tab=2"}, {"k": "506402", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "神戸", "a": "大阪", "hs": "84", "as": "78", "v": "GLION ARENA KOBE", "n": 7165, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506402&tab=2"}, {"k": "506403", "d": "2026-09-27", "l": "B.PREMIER", "e": "リーグ戦", "h": "佐賀", "a": "広島", "hs": "61", "as": "89", "v": "SAGAアリーナ", "n": 5793, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506403&tab=2"}, {"k": "506404", "d": "2026-09-25", "l": "B.PREMIER", "e": "リーグ戦", "h": "長崎", "a": "島根", "hs": "78", "as": "85", "v": "ハピネスアリーナ", "n": 5700, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=506404&tab=2"}, {"k": "507159", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "岩手", "a": "山形", "hs": "86", "as": "75", "v": "盛岡タカヤアリーナ", "n": 2577, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507159&tab=2"}, {"k": "507160", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "岩手", "a": "山形", "hs": "85", "as": "73", "v": "盛岡タカヤアリーナ", "n": 3255, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507160&tab=2"}, {"k": "507161", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "埼玉", "a": "東京U", "hs": "85", "as": "71", "v": "バタフライアリーナ所沢(所沢市民体育館)", "n": 2071, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507161&tab=2"}, {"k": "507162", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "埼玉", "a": "東京U", "hs": "64", "as": "95", "v": "バタフライアリーナ所沢(所沢市民体育館)", "n": 2023, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507162&tab=2"}, {"k": "507163", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "東京Z", "a": "立川", "hs": "79", "as": "73", "v": "EBARA WAVE アリーナおおた(大田区総合体育館)", "n": 2240, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507163&tab=2"}, {"k": "507164", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "東京Z", "a": "立川", "hs": "50", "as": "65", "v": "EBARA WAVE アリーナおおた(大田区総合体育館)", "n": 1369, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507164&tab=2"}, {"k": "507165", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "新潟", "a": "金沢", "hs": "69", "as": "72", "v": "シティホールプラザ アオーレ長岡", "n": 2250, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507165&tab=2"}, {"k": "507166", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "新潟", "a": "金沢", "hs": "70", "as": "81", "v": "シティホールプラザ アオーレ長岡", "n": 2301, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507166&tab=2"}, {"k": "507167", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "岐阜", "a": "福井", "hs": "88", "as": "90", "v": "OKBぎふ清流アリーナ", "n": 2616, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507167&tab=2"}, {"k": "507168", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "岐阜", "a": "福井", "hs": "82", "as": "80", "v": "OKBぎふ清流アリーナ", "n": 2359, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507168&tab=2"}, {"k": "507169", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "静岡", "a": "FE名古屋", "hs": "87", "as": "70", "v": "このはなアリーナ", "n": 3558, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507169&tab=2"}, {"k": "507170", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "静岡", "a": "FE名古屋", "hs": "76", "as": "85", "v": "このはなアリーナ", "n": 3509, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507170&tab=2"}, {"k": "507171", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "奈良", "a": "福島", "hs": "86", "as": "103", "v": "ロートアリーナ奈良", "n": 2494, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507171&tab=2"}, {"k": "507172", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "奈良", "a": "福島", "hs": "99", "as": "88", "v": "ロートアリーナ奈良", "n": 2576, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507172&tab=2"}, {"k": "507173", "d": "2026-09-25", "l": "B.ONE", "e": "リーグ戦", "h": "岡山", "a": "越谷", "hs": "60", "as": "94", "v": "シゲトーアリーナ岡山", "n": 2138, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507173&tab=2"}, {"k": "507174", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "岡山", "a": "越谷", "hs": "80", "as": "84", "v": "シゲトーアリーナ岡山", "n": 2834, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507174&tab=2"}, {"k": "507175", "d": "2026-09-22", "l": "B.ONE", "e": "リーグ戦", "h": "徳島", "a": "横浜EX", "hs": "87", "as": "99", "v": "アスティとくしま", "n": 3528, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507175&tab=2"}, {"k": "507176", "d": "2026-09-23", "l": "B.ONE", "e": "リーグ戦", "h": "徳島", "a": "横浜EX", "hs": "93", "as": "92", "v": "アスティとくしま", "n": 2650, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507176&tab=2"}, {"k": "507177", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "愛媛", "a": "青森", "hs": "84", "as": "74", "v": "愛媛県武道館", "n": 3447, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507177&tab=2"}, {"k": "507178", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "愛媛", "a": "青森", "hs": "95", "as": "96", "v": "愛媛県武道館", "n": 3896, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507178&tab=2"}, {"k": "507179", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "熊本", "a": "香川", "hs": "93", "as": "60", "v": "熊本県立総合体育館", "n": 3605, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507179&tab=2"}, {"k": "507180", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "熊本", "a": "香川", "hs": "88", "as": "71", "v": "熊本県立総合体育館", "n": 3589, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507180&tab=2"}, {"k": "507181", "d": "2026-09-26", "l": "B.ONE", "e": "リーグ戦", "h": "鹿児島", "a": "福岡", "hs": "69", "as": "83", "v": "鹿児島県総合体育センター体育館", "n": 2604, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507181&tab=2"}, {"k": "507182", "d": "2026-09-27", "l": "B.ONE", "e": "リーグ戦", "h": "鹿児島", "a": "福岡", "hs": "84", "as": "76", "v": "鹿児島県総合体育センター体育館", "n": 2737, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507182&tab=2"}, {"k": "507909", "d": "2026-09-26", "l": "B.NEXT", "e": "リーグ戦", "h": "山口", "a": "品川", "hs": "65", "as": "55", "v": "俵田翁記念体育館", "n": 1247, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507909&tab=2"}, {"k": "507910", "d": "2026-09-27", "l": "B.NEXT", "e": "リーグ戦", "h": "山口", "a": "品川", "hs": "76", "as": "73", "v": "俵田翁記念体育館", "n": 1305, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507910&tab=2"}, {"k": "507911", "d": "2026-09-25", "l": "B.NEXT", "e": "リーグ戦", "h": "三重", "a": "湘南", "hs": "65", "as": "84", "v": "津市久居体育館", "n": 502, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507911&tab=2"}, {"k": "507912", "d": "2026-09-26", "l": "B.NEXT", "e": "リーグ戦", "h": "三重", "a": "湘南", "hs": "55", "as": "75", "v": "津市久居体育館", "n": 685, "u": "https://www.bleague.jp/game_detail/?ScheduleKey=507912&tab=2"}]} || {season:"2026-27",updated:"—",games:[]};
+const LEAGUES = ["B.PREMIER","B.ONE","B.NEXT"];
+const TAGCLS = {"B.PREMIER":"P","B.ONE":"O","B.NEXT":"N"};
+const TAGTXT = {"B.PREMIER":"PREMIER","B.ONE":"ONE","B.NEXT":"NEXT"};
+const WD = ["日","月","火","水","木","金","土"];
+const fmt = n => Math.round(n).toLocaleString("ja-JP");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dayLabel = d => { const t = new Date(d+"T00:00:00"); return `${t.getMonth()+1}/${t.getDate()}（${WD[t.getDay()]}）`; };
+
+let league = "ALL";
+let view = "daily";
+let sortKey = "avg", sortDir = -1;
+
+function filtered(){ return DATA.games.filter(g => league==="ALL" || g.l===league); }
+
+/* ---------- controls ---------- */
+function renderChips(){
+  const el = document.getElementById("leagueChips");
+  const opts = [["ALL","すべて"], ...LEAGUES.map(l=>[l,l])];
+  el.innerHTML = opts.map(([v,t]) =>
+    `<button class="chip" data-l="${v}" aria-pressed="${v===league}">${t}</button>`).join("");
+  el.querySelectorAll(".chip").forEach(b => b.onclick = () => { league = b.dataset.l; renderAll(); });
+}
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  view = b.dataset.view;
+  document.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", x===b));
+  document.getElementById("view-daily").hidden = view!=="daily";
+  document.getElementById("view-rank").hidden = view!=="rank";
+});
+
+/* ---------- KPIs ---------- */
+function renderKpis(gs){
+  const total = gs.reduce((s,g)=>s+g.n,0);
+  const top = gs.slice().sort((a,b)=>b.n-a.n)[0];
+  const days = new Set(gs.map(g=>g.d)).size;
+  const tiles = [
+    ["総入場者数", gs.length? fmt(total)+"人":"—", `${days}開催日`],
+    ["試合数", gs.length? fmt(gs.length):"—", league==="ALL"?"3リーグ合計":league],
+    ["1試合平均", gs.length? fmt(total/gs.length)+"人":"—", "全試合の単純平均"],
+    ["最多入場", top? fmt(top.n)+"人":"—", top? `${dayLabel(top.d)} ${top.h} vs ${top.a}`:""],
+  ];
+  document.getElementById("kpis").innerHTML = tiles.map(([lb,v,s]) =>
+    `<div class="kpi"><div class="lb">${lb}</div><div class="v">${v}</div><div class="s" title="${esc(s)}">${esc(s)}</div></div>`).join("");
+}
+
+/* ---------- daily chart ---------- */
+function byDay(gs){
+  const m = new Map();
+  gs.forEach(g => { if(!m.has(g.d)) m.set(g.d, []); m.get(g.d).push(g); });
+  return [...m.entries()].sort((a,b)=>a[0]<b[0]?-1:1).map(([d,list]) => ({
+    d, list, total: list.reduce((s,g)=>s+g.n,0), n: list.length }));
+}
+function niceMax(v){ if(v<=0) return 1000; const p = Math.pow(10, Math.floor(Math.log10(v))); const f=v/p;
+  return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p; }
+
+function renderChart(days){
+  const box = document.getElementById("chart");
+  box.querySelector("svg")?.remove();
+  const tip = document.getElementById("tip");
+  if(!days.length){ return; }
+  const W = box.clientWidth || 800, H = 200, L = 44, R = 4, T = 8, B = 22;
+  const iw = W-L-R, ih = H-T-B;
+  const max = niceMax(Math.max(...days.map(d=>d.total)));
+  const step = iw / days.length, bw = Math.max(2, Math.min(28, step - 2));
+  const y = v => T + ih - v/max*ih;
+  const ticks = [0, max/4, max/2, max*3/4, max];
+  const labEvery = Math.ceil(days.length / Math.max(1, Math.floor(iw/46)));
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="日別総入場者数">`;
+  s += `<g class="grid">` + ticks.map(t=>`<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}"/>`).join("") + `</g>`;
+  s += `<g class="axis">` + ticks.map(t=>`<text x="${L-6}" y="${y(t)+3}" text-anchor="end">${t>=10000? (t/10000).toLocaleString("ja-JP")+"万": fmt(t)}</text>`).join("");
+  days.forEach((d,i)=>{ if(i%labEvery===0){ const t=new Date(d.d+"T00:00:00");
+    s += `<text x="${L+step*i+step/2}" y="${H-6}" text-anchor="middle">${t.getMonth()+1}/${t.getDate()}</text>`; } });
+  s += `</g>`;
+  days.forEach((d,i)=>{
+    const x = L + step*i + (step-bw)/2, h = Math.max(1, ih - (y(d.total)-T)), r = Math.min(4, bw/2);
+    const top = y(d.total);
+    s += `<path class="bar" data-i="${i}" d="M${x},${T+ih} V${top+r} Q${x},${top} ${x+r},${top} H${x+bw-r} Q${x+bw},${top} ${x+bw},${top+r} V${T+ih} Z"/>`;
+    s += `<rect data-i="${i}" x="${L+step*i}" y="${T}" width="${step}" height="${ih}" fill="transparent"/>`;
+  });
+  s += `</svg>`;
+  box.insertAdjacentHTML("beforeend", s);
+  const bars = box.querySelectorAll(".bar");
+  box.querySelectorAll("[data-i]").forEach(el => {
+    el.addEventListener("mouseenter", () => {
+      const i = +el.dataset.i, d = days[i];
+      bars.forEach((b,j)=>b.classList.toggle("dim", j!==i));
+      tip.innerHTML = `${dayLabel(d.d)}　<b>${fmt(d.total)}人</b><br>${d.n}試合・平均 ${fmt(d.total/d.n)}人`;
+      tip.style.left = Math.min(Math.max(L + step*i + step/2, 70), W-70) + "px";
+      tip.style.top = y(d.total) + "px";
+      tip.style.opacity = 1;
+    });
+    el.addEventListener("mouseleave", () => { bars.forEach(b=>b.classList.remove("dim")); tip.style.opacity = 0; });
+    el.addEventListener("click", () => {
+      const det = document.querySelector(`details.day[data-d="${days[+el.dataset.i].d}"]`);
+      if(det){ det.open = true; det.scrollIntoView({behavior:"smooth", block:"start"}); }
+    });
+  });
+}
+
+/* ---------- daily list ---------- */
+function renderDays(days){
+  const el = document.getElementById("days");
+  if(!days.length){ el.innerHTML = `<div class="empty">まだデータがありません</div>`; return; }
+  const showLeague = league==="ALL";
+  el.innerHTML = days.slice().reverse().map((d,idx) => {
+    const rows = d.list.slice().sort((a,b)=>b.n-a.n).map(g => `
+      <tr>
+        <td>${showLeague? `<span class="tag ${TAGCLS[g.l]}">${TAGTXT[g.l]}</span> `:""}
+          <span class="team">${esc(g.h)}</span>${g.hs!==""&&g.as!==""? ` <span class="score">${esc(g.hs)}-${esc(g.as)}</span>`:""}<span class="vs">vs</span>${esc(g.a)}
+          <div class="venue">${esc(g.v)}</div></td>
+        <td class="num"><a href="${esc(g.u)}" target="_blank" rel="noopener">${fmt(g.n)}人</a></td>
+      </tr>`).join("");
+    return `<details class="day" data-d="${d.d}" ${idx===0?"open":""}>
+      <summary>
+        <span class="dt">${dayLabel(d.d)}</span>
+        <span class="num"><span class="lbl">試合</span>${d.n}</span>
+        <span class="num"><span class="lbl">合計</span><b>${fmt(d.total)}</b></span>
+        <span class="num avgc"><span class="lbl">平均</span>${fmt(d.total/d.n)}</span>
+      </summary>
+      <table class="games"><tbody>${rows}</tbody></table>
+    </details>`;
+  }).join("");
+}
+
+/* ---------- ranking ---------- */
+function renderRank(gs){
+  const m = new Map();
+  gs.forEach(g => {
+    const k = g.l + "|" + g.h;
+    if(!m.has(k)) m.set(k, {team:g.h, l:g.l, list:[]});
+    m.get(k).list.push(g.n);
+  });
+  let rows = [...m.values()].map(t => ({
+    team:t.team, l:t.l, n:t.list.length,
+    avg: t.list.reduce((s,v)=>s+v,0)/t.list.length,
+    max: Math.max(...t.list), min: Math.min(...t.list), total: t.list.reduce((s,v)=>s+v,0)
+  }));
+  // 順位は常に平均の高い順で付ける
+  rows.sort((a,b)=>b.avg-a.avg).forEach((r,i)=>r.rank=i+1);
+  rows.sort((a,b)=> sortKey==="team" ? sortDir*a.team.localeCompare(b.team,"ja") : sortDir*(a[sortKey]-b[sortKey]));
+  const maxAvg = Math.max(1, ...rows.map(r=>r.avg));
+  const showLeague = league==="ALL";
+  const th = (k,t,cls="") => `<th class="sortable ${cls}" data-k="${k}">${t}${sortKey===k? ` <span class="arr">${sortDir<0?"▼":"▲"}</span>`:""}</th>`;
+  const t = document.getElementById("rankTable");
+  if(!rows.length){ t.innerHTML = `<tr><td class="empty">まだデータがありません</td></tr>`; return; }
+  t.innerHTML = `<thead><tr>
+      <th class="rank">順位</th>${th("team","チーム")}${th("n","試合","num")}
+      ${th("avg","平均","barcell")}${th("max","最多","num hide-sm")}${th("min","最少","num hide-sm")}${th("total","合計","num hide-sm")}
+    </tr></thead><tbody>` + rows.map(r => `
+    <tr>
+      <td class="rank">${r.rank}</td>
+      <td>${showLeague? `<span class="tag ${TAGCLS[r.l]}">${TAGTXT[r.l]}</span> `:""}<span class="team">${esc(r.team)}</span></td>
+      <td class="num">${r.n}</td>
+      <td class="barcell"><div class="hbar"><span>${fmt(r.avg)}</span><b><i style="width:${(r.avg/maxAvg*100).toFixed(1)}%"></i></b></div></td>
+      <td class="num hide-sm">${fmt(r.max)}</td>
+      <td class="num hide-sm">${fmt(r.min)}</td>
+      <td class="num hide-sm">${fmt(r.total)}</td>
+    </tr>`).join("") + `</tbody>`;
+  t.querySelectorAll("th.sortable").forEach(h => h.onclick = () => {
+    const k = h.dataset.k;
+    if(sortKey===k) sortDir *= -1; else { sortKey = k; sortDir = k==="team" ? 1 : -1; }
+    renderRank(filtered());
+  });
+}
+
+function renderAll(){
+  const gs = filtered();
+  document.getElementById("meta").textContent =
+    `${DATA.season}シーズン ／ 最終更新 ${DATA.updated} ／ ${fmt(DATA.games.length)}試合収録`;
+  renderChips(); renderKpis(gs);
+  const days = byDay(gs);
+  renderChart(days); renderDays(days); renderRank(gs);
+}
+let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(()=>renderChart(byDay(filtered())), 150); });
+renderAll();
+</script>
+</body>
+</html>
